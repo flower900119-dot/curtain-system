@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>窗簾樣品管理系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">樣品管理報表</h1>
+                <p class="text-gray-500">追蹤門市窗簾樣本的借還狀態</p>
+            </div>
+            <button onclick="toggleModal('addModal')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow transition">
+                + 新增樣本
+            </button>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+                <div class="text-sm text-gray-500">總樣本數</div>
+                <div id="totalCount" class="text-2xl font-bold text-gray-800">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                <div class="text-sm text-gray-500">在店庫存</div>
+                <div id="inStockCount" class="text-2xl font-bold text-gray-800">0</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500">
+                <div class="text-sm text-gray-500">外借中</div>
+                <div id="borrowedCount" class="text-2xl font-bold text-gray-800">0</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-gray-50 text-gray-600 text-sm uppercase">
+                    <tr>
+                        <th class="p-4 font-semibold">樣本名稱/編號</th>
+                        <th class="p-4 font-semibold">分類</th>
+                        <th class="p-4 font-semibold">目前狀態</th>
+                        <th class="p-4 font-semibold">借閱人/說明</th>
+                        <th class="p-4 font-semibold text-center">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="sampleList" class="divide-y divide-gray-100">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="addModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 class="text-xl font-bold mb-4">新增樣本資料</h2>
+            <div class="space-y-4">
+                <input type="text" id="newName" placeholder="樣本名稱 (如: 雅典娜遮光布)" class="w-full border p-2 rounded">
+                <select id="newCategory" class="w-full border p-2 rounded">
+                    <option value="布簾">布簾</option>
+                    <option value="紗簾">紗簾</option>
+                    <option value="捲簾">捲簾</option>
+                    <option value="百葉窗">百葉窗</option>
+                </select>
+                <div class="flex justify-end gap-2">
+                    <button onclick="toggleModal('addModal')" class="text-gray-500 px-4 py-2">取消</button>
+                    <button onclick="addSample()" class="bg-indigo-600 text-white px-4 py-2 rounded">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="borrowModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 class="text-xl font-bold mb-4">樣本借出登記</h2>
+            <input type="hidden" id="borrowIdx">
+            <input type="text" id="borrowerName" placeholder="借閱客戶或業務姓名" class="w-full border p-2 rounded mb-4">
+            <div class="flex justify-end gap-2">
+                <button onclick="toggleModal('borrowModal')" class="text-gray-500 px-4 py-2">取消</button>
+                <button onclick="confirmBorrow()" class="bg-orange-500 text-white px-4 py-2 rounded">確認借出</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let samples = JSON.parse(localStorage.getItem('curtainSamples')) || [];
+
+        function save() {
+            localStorage.setItem('curtainSamples', JSON.stringify(samples));
+            render();
+        }
+
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.toggle('hidden');
+        }
+
+        function addSample() {
+            const name = document.getElementById('newName').value;
+            const category = document.getElementById('newCategory').value;
+            if(!name) return alert('請輸入名稱');
+            
+            samples.push({ name, category, status: '在店', borrower: '' });
+            document.getElementById('newName').value = '';
+            toggleModal('addModal');
+            save();
+        }
+
+        function openBorrowModal(index) {
+            document.getElementById('borrowIdx').value = index;
+            toggleModal('borrowModal');
+        }
+
+        function confirmBorrow() {
+            const idx = document.getElementById('borrowIdx').value;
+            const name = document.getElementById('borrowerName').value;
+            if(!name) return alert('請輸入借閱人');
+
+            samples[idx].status = '外借中';
+            samples[idx].borrower = name;
+            document.getElementById('borrowerName').value = '';
+            toggleModal('borrowModal');
+            save();
+        }
+
+        function returnSample(index) {
+            samples[index].status = '在店';
+            samples[index].borrower = '';
+            save();
+        }
+
+        function deleteSample(index) {
+            if(confirm('確定要刪除此樣本嗎？')) {
+                samples.splice(index, 1);
+                save();
+            }
+        }
+
+        function render() {
+            const list = document.getElementById('sampleList');
+            list.innerHTML = '';
+            
+            let counts = { total: samples.length, inStock: 0, borrowed: 0 };
+
+            samples.forEach((s, i) => {
+                const isBorrowed = s.status === '外借中';
+                if(isBorrowed) counts.borrowed++; else counts.inStock++;
+
+                list.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-4 font-medium text-gray-800">${s.name}</td>
+                        <td class="p-4 text-gray-500"><span class="bg-gray-100 px-2 py-1 rounded text-xs">${s.category}</span></td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded-full text-xs font-bold ${isBorrowed ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}">
+                                ${s.status}
+                            </span>
+                        </td>
+                        <td class="p-4 text-sm text-gray-600">${s.borrower || '-'}</td>
+                        <td class="p-4 text-center">
+                            ${isBorrowed 
+                                ? `<button onclick="returnSample(${i})" class="text-green-600 hover:underline mr-3">歸還</button>`
+                                : `<button onclick="openBorrowModal(${i})" class="text-blue-600 hover:underline mr-3">借出</button>`
+                            }
+                            <button onclick="deleteSample(${i})" class="text-red-400 hover:text-red-600">
+                                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('totalCount').innerText = counts.total;
+            document.getElementById('inStockCount').innerText = counts.inStock;
+            document.getElementById('borrowedCount').innerText = counts.borrowed;
+        }
+
+        render();
+    </script>
+</body>
+</html>
